@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import Cookies from "js-cookie"; // Import js-cookie
 
 const SignIn = () => {
   const [formData, setFormData] = useState({
@@ -30,15 +31,18 @@ const SignIn = () => {
       if (response.data.status === "Login Success") {
         alert("✅ Login Successful!");
 
-        // Store token in localStorage
-        localStorage.setItem("authToken", response.data.token);
+        // Store token, email, and userType in cookies for both users and investors
+        Cookies.set("authToken", response.data.token, { expires: 7 });
+        Cookies.set("userEmail", formData.email, { expires: 7 });
+        Cookies.set("userType", formData.userType, { expires: 7 });
+
+        // If investor logs in, store investor-specific cookies
+        if (formData.userType === "investor") {
+          Cookies.set("investorEmail", formData.email, { expires: 7 }); // Store investor email separately
+        }
 
         // Navigate based on userType
-        if (response.data.userType === "user") {
-          navigate("/userDashboard");
-        } else if (response.data.userType === "investor") {
-          navigate("/investorDashboard");
-        }
+        navigate(formData.userType === "user" ? "/addcampaign" : "/viewcampaigns");
       } else if (response.data.status === "Not Found") {
         alert("⚠️ User Not Found! Please check your email.");
       } else if (response.data.status === "Incorrect Password") {
