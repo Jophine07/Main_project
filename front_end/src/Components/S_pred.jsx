@@ -56,7 +56,7 @@ const S_pred = () => {
     }
 
     try {
-      const response = await axios.post("http://127.0.0.1:5000/S_pred", formData);
+      const response = await axios.post("http://127.0.0.1:5001/S_pred", formData);
       if (response.data && response.data.prediction) {
         setPredictionResult(response.data.prediction);
       } else {

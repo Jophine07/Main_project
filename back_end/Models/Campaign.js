@@ -7,7 +7,7 @@ const campaignSchema = mongoose.Schema({
   description: { type: String, required: true },
   targetAmount: { type: Number, required: true },
   collectedAmount: { type: Number, default: 0 },
-  deadline: { type: Date, required: true },
+  deadline: { type: Number, required: true },
   category: { type: String, enum: ["IOT", "AWS Hosting"], required: true },
   location: { type: String, required: true },
   fundingType: { type: String, enum: ["All or Nothing", "Flexible"], required: true },

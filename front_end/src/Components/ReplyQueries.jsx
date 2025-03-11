@@ -4,42 +4,56 @@ import Cookies from "js-cookie";
 import UserNavBar from "./UserNavBar";
 
 const ReplyQueries = () => {
-  const [queries, setQueries] = useState([]);
-  const [replyData, setReplyData] = useState({});
-  const userEmail = Cookies.get("userEmail"); // Get logged-in user's email
+  const [queries, setQueries] = useState([]); // Holds queries from investors
+  const [replyData, setReplyData] = useState({}); // Holds reply inputs
+  const userEmail = Cookies.get("userEmail"); // Logged-in user's email
 
+  // Fetch queries when component loads or userEmail changes
   useEffect(() => {
-    console.log("User Email from Cookie:", userEmail); // Debugging
     if (userEmail) {
       fetchQueries();
     }
   }, [userEmail]);
 
+  // Fetch investor queries for the logged-in user
   const fetchQueries = async () => {
     try {
-      const response = await axios.get(`http://localhost:8080/get-queries/${userEmail}`);
+      const response = await axios.get(
+        `http://localhost:8080/get-queries/${userEmail}?timestamp=${new Date().getTime()}`
+      );
       setQueries(response.data);
     } catch (error) {
       console.error("Error fetching queries:", error.response?.data || error.message);
     }
   };
 
-  const handleReplyChange = (investorEmail, reply) => {
-    setReplyData({ ...replyData, [investorEmail]: reply });
+  // Handle reply text change
+  const handleReplyChange = (queryId, reply) => {
+    setReplyData((prevData) => ({
+      ...prevData,
+      [queryId]: reply,
+    }));
   };
 
-  const submitReply = async (investorEmail) => {
+  // Submit reply using query's _id
+  const submitReply = async (queryId) => {
     try {
-      await axios.post(`http://localhost:8080/reply-query/${investorEmail}`, {
-        userEmail, // Logged-in user's email (from cookies)
-        reply: replyData[investorEmail] || "",
-      });
-      alert("Reply submitted successfully!");
-      fetchQueries();
+      const replyText = replyData[queryId] || ""; // Get reply text
+  
+      const response = await axios.put(
+        `http://localhost:8080/update-query-reply/${queryId}`,
+        { reply: replyText },  // Send reply data in the body
+        { headers: { "Content-Type": "application/json" } } // Ensure proper content type
+      );
+  
+      alert("Reply updated successfully!");
+      fetchQueries(); // Refresh queries after update
     } catch (error) {
-      alert("Error submitting reply.");
+      console.error("Error updating reply:", error.response?.data || error.message);
+      alert("Error updating reply.");
     }
   };
+  
 
   return (
     <div style={styles.pageContainer}>
@@ -49,16 +63,25 @@ const ReplyQueries = () => {
         {queries.length > 0 ? (
           queries.map((query) => (
             <div key={query._id} style={styles.card}>
-              <p><strong>Investor:</strong> {query.investorEmail}</p>
-              <p><strong>Query:</strong> {query.message}</p>
-              <p><strong>Reply:</strong> {query.reply || "No reply yet"}</p>
+              <p>
+                <strong>Investor:</strong> {query.investorEmail}
+              </p>
+              <p>
+                <strong>Query:</strong> {query.message}
+              </p>
+              <p>
+                <strong>Reply:</strong> {query.reply || "No reply yet"}
+              </p>
               <textarea
                 style={styles.textArea}
                 placeholder="Write a reply..."
-                value={replyData[query.investorEmail] || ""}
-                onChange={(e) => handleReplyChange(query.investorEmail, e.target.value)}
+                value={replyData[query._id] || ""}
+                onChange={(e) => handleReplyChange(query._id, e.target.value)}
               />
-              <button style={styles.button} onClick={() => submitReply(query.investorEmail)}>
+              <button
+                style={styles.button}
+                onClick={() => submitReply(query._id)}
+              >
                 Submit Reply
               </button>
             </div>
@@ -71,35 +94,39 @@ const ReplyQueries = () => {
   );
 };
 
-// Inline CSS Styles
+// Stylish Inline CSS
 const styles = {
   pageContainer: {
     backgroundColor: "#f4f7fc",
     minHeight: "100vh",
     paddingBottom: "30px",
+    fontFamily: "Arial, sans-serif",
   },
   container: {
     maxWidth: "800px",
     margin: "30px auto",
     padding: "20px",
     backgroundColor: "#ffffff",
-    boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
+    boxShadow: "0 4px 10px rgba(0, 0, 0, 0.15)",
     borderRadius: "10px",
   },
   title: {
     textAlign: "center",
-    fontSize: "24px",
+    fontSize: "26px",
     fontWeight: "bold",
     color: "#333",
     marginBottom: "20px",
+    borderBottom: "3px solid #007bff",
+    paddingBottom: "5px",
   },
   card: {
     backgroundColor: "#ffffff",
     padding: "15px",
     borderRadius: "10px",
-    boxShadow: "0 2px 6px rgba(0, 0, 0, 0.1)",
+    boxShadow: "0 3px 8px rgba(0, 0, 0, 0.1)",
     marginBottom: "15px",
     borderLeft: "5px solid #007bff",
+    transition: "0.3s",
   },
   textArea: {
     width: "100%",
@@ -109,23 +136,21 @@ const styles = {
     marginBottom: "10px",
     fontSize: "14px",
     resize: "none",
+    transition: "border 0.3s",
   },
   button: {
     backgroundColor: "#007bff",
     color: "#fff",
-    padding: "8px 15px",
+    padding: "10px 15px",
     border: "none",
     borderRadius: "5px",
     cursor: "pointer",
     fontSize: "14px",
     transition: "0.3s",
   },
-  buttonHover: {
-    backgroundColor: "#0056b3",
-  },
   noQueryText: {
     textAlign: "center",
-    fontSize: "16px",
+    fontSize: "18px",
     color: "#777",
     marginTop: "20px",
   },

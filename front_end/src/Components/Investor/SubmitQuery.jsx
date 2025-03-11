@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import Cookies from "js-cookie"; // Import js-cookie
+import InvestorNavBar from "./InvestorNavBar";
 
 const SubmitQuery = () => {
   const [formData, setFormData] = useState({
@@ -42,6 +43,8 @@ const SubmitQuery = () => {
   };
 
   return (
+    <div>
+      <InvestorNavBar/>
     <div className="container mt-4">
       <h3>Ask a Query</h3>
       <form onSubmit={handleSubmit}>
@@ -81,6 +84,7 @@ const SubmitQuery = () => {
 
         <button type="submit" className="btn btn-primary">Submit Query</button>
       </form>
+    </div>
     </div>
   );
 };

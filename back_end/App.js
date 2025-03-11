@@ -175,31 +175,33 @@ app.get("/get-queries/:userEmail", async (req, res) => {
   });
 
 
-  app.post("/reply-query/:investorEmail", async (req, res) => {
+  app.put("/update-query-reply/:queryId", async (req, res) => {
+    const { queryId } = req.params;
+    const { reply } = req.body;
+  
+    if (!queryId || !reply) {
+      return res.status(400).json({ message: "Query ID and reply are required" });
+    }
+  
     try {
-      const investorEmail = req.params.investorEmail;
-      const { userEmail, reply } = req.body; // User responding
-  
-  
-      if (!investorEmail || !userEmail || !reply) {
-        return res.status(400).json({ error: "Missing required fields!" });
-      }
-  
-      // Update all queries where userEmail and investorEmail match
-      const updatedQuery = await Query.updateMany(
-        { investorEmail, userEmail }, // Match both investor and user
-        { $set: { reply } } // Set reply
+      const updatedQuery = await Query.findByIdAndUpdate(
+        queryId,
+        { reply },
+        { new: true }
       );
   
-      console.log("✅ Updated queries:", updatedQuery);
+      if (!updatedQuery) {
+        return res.status(404).json({ message: "Query not found" });
+      }
   
-      res.json({ message: "Reply submitted successfully!" });
+      res.status(200).json({ message: "Reply updated successfully", updatedQuery });
     } catch (error) {
-      console.error("❌ Error submitting reply:", error);
-      res.status(500).json({ error: "Error submitting reply" });
+      console.error("Error updating reply:", error);
+      res.status(500).json({ message: "Error updating reply", error });
     }
   });
-
+  
+  
 
 //------------------Investor Dashboard------------------
 
@@ -219,34 +221,244 @@ app.post("/submit-query", async (req, res) => {
 
   app.get("/allcampaigns", async (req, res) => {
     try {
-      const campaigns = await campaignModel.find();
+      const campaigns = await campaignModel.find({ status: "Active" }); // Only fetch active campaigns
       res.json(campaigns);
     } catch (err) {
       res.status(500).json({ error: "Failed to fetch campaigns." });
     }
-  });
+});
 
 
 
-app.listen(8080,()=>{
-    console.log("Server Turned On")
-})
+app.post("/update-funds", async (req, res) => {
+  try {
+    const { campaignId, amount } = req.body;
+
+    if (!campaignId || !amount || amount <= 0) {
+      return res.status(400).json({ success: false, message: "Invalid input" });
+    }
+
+    // Fetch the current campaign details
+    const campaign = await campaignModel.findById(campaignId);
+
+    if (!campaign) {
+      return res.status(404).json({ success: false, message: "Campaign not found" });
+    }
+
+    // Check if adding the amount exceeds the target
+    const newTotalFunds = campaign.fundsRaised + amount;
+    if (newTotalFunds > campaign.targetAmount) {
+      return res.status(400).json({ 
+        success: false, 
+        message: `Cannot donate. Target amount of ₹${campaign.targetAmount} has been reached.` 
+      });
+    }
+
+    // Update fundsRaised in the Campaign model
+    const updatedCampaign = await campaignModel.findByIdAndUpdate(
+      campaignId,
+      { $inc: { fundsRaised: amount } }, // Increment fundsRaised by the donated amount
+      { new: true }
+    );
+
+    res.json({ success: true, message: "Funds updated successfully", updatedCampaign });
+  } catch (error) {
+    console.error("Update Funds Error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+
+
+app.get("/get-user-replie", async (req, res) => {
+  try {
+    // Debugging: Log received query params
+    console.log("Query params received:", req.query);
+
+    // Extract userEmail from query parameters
+    const userEmail = req.query.email;
+
+    // Debugging: Log extracted email
+    console.log("Extracted userEmail:", userEmail);
+
+    if (!userEmail) {
+      return res.status(400).json({ message: "Bad Request: Email parameter is missing" });
+    }
+
+    // Fetch queries where the logged-in user has replied
+    const userReplies = await Query.find({
+      "reply.investorEmail": userEmail, // Find replies by the logged-in user
+    });
+
+    if (userReplies.length === 0) {
+      console.log("No replies found for:", userEmail);
+      return res.status(404).json({ message: "No replies found." });
+    }
+
+    console.log("User Replies Retrieved:", userReplies);
+    res.status(200).json(userReplies);
+  } catch (error) {
+    console.error("Error fetching user replies:", error);
+    res.status(500).json({ message: "Error fetching replies", error });
+  }
+});
+app.get("/get-user-replies/:userEmail", async (req, res) => {
+  try {
+    const investorEmail = req.params.userEmail;
+    
+    // Fetch queries from MongoDB
+    const queries = await Query.find({ investorEmail });
+
+   
+
+    // Return queries
+    res.json(queries);
+  } catch (error) {
+    console.error("❌ Error fetching queries:", error.message);
+    res.status(500).json({ error: "Error fetching queries" });
+  }
+});
+
+
+
 
 
 //------------------Admin Dashboard------------------
 
 
-app.put("/update-campaign/:id", async (req, res) => {
+
+app.get("/adminallcampaigns", async (req, res) => {
   try {
-    const { status } = req.body;
-    const campaign = await campaignModel.findByIdAndUpdate(req.params.id, { status }, { new: true });
-
-    if (!campaign) {
-      return res.status(404).json({ message: "Campaign not found" });
-    }
-
-    res.status(200).json({ message: "Campaign updated successfully", campaign });
-  } catch (error) {
-    res.status(500).json({ message: "Error updating campaign", error });
+    const campaigns = await campaignModel.find(); // Fetch all campaigns, regardless of status
+    res.json(campaigns);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch campaigns." });
   }
 });
+
+
+
+
+app.put("/update-campaign-status/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    await campaignModel.findByIdAndUpdate(id, { status });
+    res.json({ message: "Status updated successfully" });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to update status" });
+  }
+});
+
+
+app.delete("/delete-campaign/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deletedCampaign = await campaignModel.findByIdAndDelete(id);
+    
+    if (!deletedCampaign) {
+      return res.status(404).json({ error: "Campaign not found" });
+    }
+
+    res.json({ message: "Campaign deleted successfully" });
+  } catch (error) {
+    console.error("Delete error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+
+
+app.get("/search-campaigns", async (req, res) => {
+  try {
+    const { email } = req.query;
+    const campaigns = await Campaign.find({ email: { $regex: email, $options: "i" } }); // Case-insensitive search
+    res.json(campaigns);
+  } catch (err) {
+    console.error("Error searching campaigns:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+
+app.get("/api/allusers", async (req, res) => {
+  try {
+    const users = await signupModel.find({ userType: "user" });
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch users" });
+  }
+});
+
+
+app.get("/api/allinvestors", async (req, res) => {
+  try {
+    const investors = await signupModel.find({ userType: "investor" });
+    res.json(investors);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch investors" });
+  }
+});
+
+
+app.delete("/api/delete/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    await signupModel.findByIdAndDelete(id);
+    res.json({ message: "Deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to delete user/investor" });
+  }
+});
+
+
+app.get("/all-queries", async (req, res) => {
+  try {
+    const queries = await Query.find().sort({ createdAt: -1 });
+    res.status(200).json(queries);
+  } catch (error) {
+    console.error("Error fetching queries:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+
+app.delete("/delete-query/:id", async (req, res) => {
+  try {
+    const deletedQuery = await Query.findByIdAndDelete(req.params.id);
+    if (!deletedQuery) return res.status(404).json({ error: "Query not found" });
+
+    res.json({ message: "Query deleted successfully!" });
+  } catch (error) {
+    console.error("Delete Query Error:", error);
+    res.status(500).json({ error: "Failed to delete query" });
+  }
+});
+
+
+
+app.get("/search-queries", async (req, res) => {
+  try {
+    const searchTerm = req.query.term ? req.query.term.toLowerCase() : "";
+
+    const queries = await Query.find({
+      $or: [
+        { investorEmail: { $regex: searchTerm, $options: "i" } }, // Case-insensitive search
+        { userEmail: { $regex: searchTerm, $options: "i" } },
+      ],
+    });
+
+    res.json(queries);
+  } catch (error) {
+    console.error("Search Queries Error:", error);
+    res.status(500).json({ error: "Failed to search queries" });
+  }
+});
+
+
+
+
+
+app.listen(8080,()=>{
+  console.log("Server Turned On")
+})

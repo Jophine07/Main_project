@@ -15,6 +15,12 @@ import S_predI from './Components/Investor/S_predI';
 import AdminDashboard from './Components/Admin/AdminDashboard';
 import AdminLogin from './Components/Admin/AdminLogin';
 import AdminViewCampaigns from './Components/Admin/AdminViewCampaigns';
+import FraudPrediction from './Components/Admin/FraudPrediction';
+import AdminViewUsersAndInvestors from './Components/Admin/AdminViewUsersAndInvestors';
+import AdminViewQueries from './Components/Admin/AdminViewQueries';
+import FraudPredictionI from './Components/Investor/FraudPredictionI';
+import Donate from './Components/Investor/Donate';
+import UserReply from './Components/Investor/UserReply';
 
 
 function App() {
@@ -30,8 +36,11 @@ function App() {
 
         {/*---------Admin Dashboard-------- */}
 
-        <Route path='/AdminViewCampaigns'element={<AdminViewCampaigns/>}/>
-        <Route path='/admindashboard'element={<AdminDashboard/>}/>
+        <Route path='/AdminViewCampaigns' element={<AdminViewCampaigns/>}/>
+        <Route path='/admindashboard' element={<AdminDashboard/>}/>
+        <Route path='/FraudPrediction' element={<FraudPrediction/>}/>
+        <Route path='/AdminViewUsersAndInvestors' element={<AdminViewUsersAndInvestors/>}/>
+        <Route path='/AdminViewQueries' element={<AdminViewQueries/>}/>
 
 
 
@@ -41,15 +50,21 @@ function App() {
         <Route path='/AddCampaign'element={<AddCampaign/>}/>
         <Route path='/usernavbar'element={<UserNavBar/>}/>
         <Route path='/yourcampaigns'element={<YourCampaigns/>}/>
-        <Route path='/s_pred'element={<S_pred/>}/>
-        <Route path='/replyqueries'element={<ReplyQueries/>}/>
+        <Route path='/s_pred' element={<S_pred/>}/>
+        <Route path='/replyqueries' element={<ReplyQueries/>}/>
+
+
+
 
         {/* -------------Investor Dashboard-----------*/}
         <Route path='/investornavbar' element={<InvestorNavBar/>}/>
         <Route path='/viewcampaigns' element={<ViewCampaigns/>}/>
         <Route path='/submitquery'element={<SubmitQuery/>}/>
         <Route path='/s_predi'element={<S_predI/>}/>
-        <Route path='/admindashboard'element={<AdminDashboard/>}/>
+        <Route path='/admindashboard'element={<AdminDashboard/>}/> 
+        <Route path='/FraudPredictionI'element={<FraudPredictionI/>}/> 
+        <Route path='/donate'element={<Donate/>}/> 
+        <Route path='/UserReply'element={<UserReply/>}/> 
 
       </Routes>
       </BrowserRouter>

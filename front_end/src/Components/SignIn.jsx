@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import Cookies from "js-cookie"; // Import js-cookie
+import Cookies from "js-cookie";
 
 const SignIn = () => {
   const [formData, setFormData] = useState({
@@ -18,29 +18,38 @@ const SignIn = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
+  
     if (!formData.email || !formData.password || !formData.userType) {
       alert("⚠️ All fields are required!");
       return;
     }
-
+  
     try {
       const response = await axios.post("http://localhost:8080/Login", formData);
       console.log("Login Response:", response.data);
-
+  
       if (response.data.status === "Login Success") {
         alert("✅ Login Successful!");
-
-        // Store token, email, and userType in cookies for both users and investors
+  
+        // Store token, email, and userType in cookies
         Cookies.set("authToken", response.data.token, { expires: 7 });
         Cookies.set("userEmail", formData.email, { expires: 7 });
         Cookies.set("userType", formData.userType, { expires: 7 });
-
-        // If investor logs in, store investor-specific cookies
+  
+        // Store session based on userType
         if (formData.userType === "investor") {
-          Cookies.set("investorEmail", formData.email, { expires: 7 }); // Store investor email separately
+          Cookies.set("investorEmail", formData.email, { expires: 7 });
+          sessionStorage.setItem(
+            "investorSession",
+            JSON.stringify({ email: formData.email, loggedIn: true })
+          );
+        } else if (formData.userType === "user") {
+          sessionStorage.setItem(
+            "userSession",
+            JSON.stringify({ email: formData.email, loggedIn: true })
+          );
         }
-
+  
         // Navigate based on userType
         navigate(formData.userType === "user" ? "/addcampaign" : "/viewcampaigns");
       } else if (response.data.status === "Not Found") {
@@ -69,6 +78,7 @@ const SignIn = () => {
       console.error("Error during login:", error);
     }
   };
+  
 
   return (
     <div

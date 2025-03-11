@@ -1,16 +1,16 @@
 import React, { useState } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom"; // Import useNavigate
+import { useNavigate } from "react-router-dom";
 
 const AdminLogin = () => {
-  const navigate = useNavigate(); // Initialize navigate function
+  const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
     admin_name: "",
     admin_password: "",
   });
 
-  const [error, setError] = useState(""); // State for error messages
+  const [error, setError] = useState("");
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -18,16 +18,22 @@ const AdminLogin = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError(""); // Clear previous errors
+    setError("");
 
     try {
       const response = await axios.post("http://localhost:8080/adminLogin", formData);
 
-      console.log("Response:", response.data); // Debugging: Log response
+      console.log("Response:", response.data); 
 
       if (response.data.status === "Login Success") {
-        alert("✅ Admin Login Successful! Redirecting...");
-        navigate("/adminDashboard"); // Redirect to Admin Dashboard
+        alert("✅ Admin Login Successful!");
+
+        // Store admin session
+        sessionStorage.setItem("adminSession", "active");
+        sessionStorage.setItem("adminName", formData.admin_name);
+
+        // Redirect to Admin Dashboard
+        navigate("/adminviewcampaigns");
       } else {
         setError(response.data.status);
       }
