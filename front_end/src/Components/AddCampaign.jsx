@@ -15,6 +15,8 @@ const AddCampaign = () => {
     fundingType: "All or Nothing",
   });
 
+  const [loading, setLoading] = useState(false); // Added loading state
+
   useEffect(() => {
     const userEmail = Cookies.get("userEmail") || "";
     setFormData((prev) => ({ ...prev, email: userEmail }));
@@ -35,12 +37,15 @@ const AddCampaign = () => {
       alert("⚠️ User email is missing. Please log in again.");
       return;
     }
+
+    setLoading(true); // Show loading indicator
+
     try {
       const response = await axios.post("http://localhost:8080/addcampaign", formData);
       if (response.data.success) {
         alert("✅ Campaign Created Successfully!");
         setFormData({
-          email: formData.email,
+          email: formData.email, // Keep email after submission
           title: "",
           description: "",
           targetAmount: "",
@@ -56,6 +61,8 @@ const AddCampaign = () => {
       console.error("Server Error:", error.message);
       alert("❌ Server Error! Please try again later.");
     }
+
+    setLoading(false); // Hide loading indicator
   };
 
   const indianStates = [
@@ -66,7 +73,6 @@ const AddCampaign = () => {
     "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura",
     "Uttar Pradesh", "Uttarakhand", "West Bengal"
   ];
-  
 
   return (
     <div className="bg-light min-vh-100 d-flex flex-column">
@@ -121,8 +127,8 @@ const AddCampaign = () => {
                 <option value="Flexible">Flexible</option>
               </select>
             </div>
-            <button type="submit" className="btn btn-primary w-100 fw-bold shadow-sm">
-              🚀 Create Campaign
+            <button type="submit" className="btn btn-primary w-100 fw-bold shadow-sm" disabled={loading}>
+              {loading ? "🚀 Creating..." : "🚀 Create Campaign"}
             </button>
           </form>
         </div>

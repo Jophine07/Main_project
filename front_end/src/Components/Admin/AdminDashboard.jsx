@@ -46,11 +46,13 @@ const AdminDashboard = () => {
                     View Campaigns
                   </Link>
                 </li>
+  
                 <li className="nav-item">
                   <Link className="nav-link" to="/FraudPrediction">
                     Fraud Prediction
                   </Link>
                 </li>
+                
                 <li className="nav-item">
                   <Link className="nav-link" to="/AdminViewUsersAndInvestors">
                     View Logins

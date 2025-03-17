@@ -48,9 +48,6 @@ const UserNavBar = () => {
                 <Link className="nav-link" to="/yourcampaigns">Your Campaigns</Link>
               </li>
               <li className="nav-item">
-                <Link className="nav-link" to="/s_pred">Success Prediction</Link>
-              </li>
-              <li className="nav-item">
                 <Link className="nav-link" to="/replyqueries">Your Queries</Link>
               </li>
             </ul>

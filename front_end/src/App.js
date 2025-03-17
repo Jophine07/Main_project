@@ -21,6 +21,9 @@ import AdminViewQueries from './Components/Admin/AdminViewQueries';
 import FraudPredictionI from './Components/Investor/FraudPredictionI';
 import Donate from './Components/Investor/Donate';
 import UserReply from './Components/Investor/UserReply';
+import MilestoneForm from './Components/MilestoneForm';
+import AdminMilestoneTracking from './Components/Admin/AdminMileStoneTracking';
+import Tracker from './Components/Investor/Tracker';
 
 
 function App() {
@@ -41,6 +44,7 @@ function App() {
         <Route path='/FraudPrediction' element={<FraudPrediction/>}/>
         <Route path='/AdminViewUsersAndInvestors' element={<AdminViewUsersAndInvestors/>}/>
         <Route path='/AdminViewQueries' element={<AdminViewQueries/>}/>
+        <Route path="/AdminMilestoneTracking/:campaignId" element={<AdminMilestoneTracking />} />
 
 
 
@@ -52,6 +56,7 @@ function App() {
         <Route path='/yourcampaigns'element={<YourCampaigns/>}/>
         <Route path='/s_pred' element={<S_pred/>}/>
         <Route path='/replyqueries' element={<ReplyQueries/>}/>
+        <Route path="/MilestoneForm/:campaignId" element={<MilestoneForm />} />
 
 
 
@@ -65,7 +70,7 @@ function App() {
         <Route path='/FraudPredictionI'element={<FraudPredictionI/>}/> 
         <Route path='/donate'element={<Donate/>}/> 
         <Route path='/UserReply'element={<UserReply/>}/> 
-
+        <Route path="/Tracker/:campaignId" element={<Tracker />} />
       </Routes>
       </BrowserRouter>
     </div>

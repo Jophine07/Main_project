@@ -8,6 +8,11 @@ const { signupModel } = require("./Models/SignUp")
 const { adminModel } = require("./Models/Admin")
 const { campaignModel } = require("./Models/Campaign")
 const Query = require("./Models/Query")
+const multer = require("multer");
+const Milestone = require("./Models/MileStone")
+const path = require("path"); 
+const fs = require("fs");
+const nodemailer = require("nodemailer");
 
 
 
@@ -18,12 +23,36 @@ app.use(cors())
 app.use(express.json())
 
 
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+
 const generateHashPassword = async (password) => {
     const salt = await bcrypt.genSalt(10)
     return bcrypt.hash(password, salt)
 }
 
+
+const uploadDir = path.join(__dirname, "uploads");
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "uploads/");
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + path.extname(file.originalname));
+  },
+});
+
+const upload = multer({ storage: storage });
+
+
 mongoose.connect("mongodb+srv://jophine:jophinepaul@cluster0.oyyvgui.mongodb.net/MainDB?retryWrites=true&w=majority&appName=Cluster0")
+
+
+
 
 
 app.post("/SignUp",async(req,res)=>
@@ -113,22 +142,6 @@ app.post("/adminLogin", async (req, res) => {
 
 
 
-app.post("/addcampaign", async (req, res) => {
-  try {
-    // Check if email is missing
-    if (!req.body.email) {
-      return res.status(400).json({ success: false, message: "❌ Email is required!" });
-    }
-
-    const newCampaign = new campaignModel(req.body);
-    await newCampaign.save();
-
-    res.json({ success: true, message: "✅ Campaign Created Successfully!" });
-  } catch (error) {
-    console.error("❌ Server Error:", error);
-    res.status(500).json({ success: false, message: "❌ Server Error!", error });
-  }
-});
 
 
 
@@ -201,6 +214,206 @@ app.get("/get-queries/:userEmail", async (req, res) => {
     }
   });
   
+
+
+
+  app.get('/campaign/:campaignId', async (req, res) => {
+    try {
+        const campaign = await campaignModel.findById(req.params.campaignId);
+        if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+        res.json(campaign);
+    } catch (err) {
+        res.status(500).json({ error: "Server error" });
+    }
+});
+
+
+
+
+// API to Upload Proof File
+app.post("/upload-proof", upload.single("proofFile"), async (req, res) => {
+  try {
+    const { campaignId, milestoneNo } = req.body;
+
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+
+    // Find the milestone and update
+    const milestone = await Milestone.findOneAndUpdate(
+      { campaignId, milestoneNo },
+      {
+        proofFile: req.file.path, // Save file path in DB
+        status: "Pending",
+        submittedAt: new Date(),
+      },
+      { new: true, upsert: true }
+    );
+
+    res.status(200).json({ message: "Proof uploaded successfully", milestone });
+  } catch (error) {
+    res.status(500).json({ message: "Error uploading proof", error });
+  }
+});
+
+
+
+
+app.get("/:campaignId/milestones", async (req, res) => {
+  try {
+    const { campaignId } = req.params;
+    const milestones = await Milestone.find({ campaignId }).sort("milestoneNo");
+
+    res.json(milestones);
+  } catch (error) {
+    console.error("Error fetching milestones:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+
+app.post("/upload-proof", upload.single("proofFile"), async (req, res) => {
+  try {
+    const { campaignId, milestoneNo, gitLink, campaignTitle } = req.body;
+    const proofFile = req.file ? req.file.path : null;
+
+
+    if (!campaignId || !milestoneNo || !proofFile) {
+      console.log("⚠️ Missing required fields");
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    // Find the campaign
+    const campaign = await Campaign.findById(campaignId);
+    if (!campaign) {
+      console.log("❌ Campaign not found");
+      return res.status(404).json({ error: "Campaign not found" });
+    }
+
+    let milestoneFound = false;
+
+    console.log("🔎 Existing Milestones Before Update:", campaign.milestones);
+
+    // Update the correct milestone
+    campaign.milestones = campaign.milestones.map((milestone) => {
+      if (milestone.no === parseInt(milestoneNo)) {
+        milestoneFound = true;
+        console.log(`✅ Updating Milestone ${milestoneNo}`);
+        return {
+          ...milestone,
+          proofFile,
+          gitLink: gitLink || milestone.gitLink, // Keep old gitLink if new is empty
+          status: "Pending",
+          campaignTitle,
+        };
+      }
+      return milestone;
+    });
+
+    if (!milestoneFound) {
+      console.log("❌ Milestone not found in campaign");
+      return res.status(404).json({ error: "Milestone not found in campaign" });
+    }
+
+    // Save the updated campaign
+    await campaign.save();
+
+    // Fetch updated campaign data
+    const updatedCampaign = await Campaign.findById(campaignId);
+
+    console.log("🔄 Updated Campaign Milestones:", updatedCampaign.milestones);
+
+    res.json({ message: "Proof uploaded successfully", campaign: updatedCampaign });
+  } catch (error) {
+    console.error("❌ Error uploading proof:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+
+
+app.post("/submit-gitlink", async (req, res) => {
+  try {
+    const { campaignId, milestoneNo, gitLink } = req.body;
+
+    console.log("📥 Received Data:", { campaignId, milestoneNo, gitLink });
+
+    if (!campaignId || !milestoneNo || !gitLink) {
+      console.log("⚠️ Missing required fields");
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    // Find and update the milestone
+    const updatedMilestone = await Milestone.findOneAndUpdate(
+      { campaignId, milestoneNo },
+      { gitLink }, // Update GitHub link only
+      { new: true }
+    );
+
+    if (!updatedMilestone) {
+      console.log("❌ Milestone not found");
+      return res.status(404).json({ error: "Milestone not found" });
+    }
+
+
+    res.json({ message: "GitHub link updated successfully", milestone: updatedMilestone });
+  } catch (error) {
+    console.error("❌ Error updating GitHub link:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+
+app.post("/addcampaign", async (req, res) => {
+  try {
+    const { email, title, description, targetAmount, deadline, category, location, fundingType } = req.body;
+
+    console.log("📌 Received request to create campaign:", req.body); // Debugging
+
+    // Create new campaign
+    const newCampaign = new campaignModel({
+      email,
+      title,
+      description,
+      targetAmount,
+      deadline,
+      category,
+      location,
+      fundingType,
+    });
+
+    const savedCampaign = await newCampaign.save();
+    console.log("✅ Campaign Created:", savedCampaign); // Debugging
+
+    if (!savedCampaign._id) {
+      console.error("❌ Error: Campaign ID is undefined!");
+      return res.status(500).json({ success: false, message: "Campaign ID is missing!" });
+    }
+
+    // ✅ Automatically create 5 milestones for this campaign
+    const milestones = [];
+    for (let i = 1; i <= 6; i++) {
+      milestones.push({
+        campaignId: savedCampaign._id, // Link milestone to campaign
+        milestoneNo: i,
+        title: `Milestone ${i}`, // Default title (optional)
+        status: "Pending",
+      });
+    }
+
+    console.log("🛠 Creating Milestones:", milestones); // Debugging
+
+    // Insert milestones into the database
+    const insertedMilestones = await Milestone.insertMany(milestones);
+    console.log("✅ Milestones Created:", insertedMilestones); // Debugging
+
+    res.status(201).json({ success: true, message: "Campaign & milestones created successfully!" });
+  } catch (error) {
+    console.error("❌ Error in campaign creation:", error);
+    res.status(500).json({ success: false, message: "Internal server error!" });
+  }
+});
+
   
 
 //------------------Investor Dashboard------------------
@@ -321,6 +534,26 @@ app.get("/get-user-replies/:userEmail", async (req, res) => {
 
 
 
+app.get("/Tracker/:campaignId", async (req, res) => {
+  try {
+    const { campaignId } = req.params;
+    const milestones = await Milestone.find({ campaignId }).sort("milestoneNo");
+
+    if (!milestones.length) {
+      return res.status(404).json({ message: "No milestones found for this campaign" });
+    }
+
+    res.json(milestones);
+  } catch (error) {
+    console.error("Error fetching milestones:", error);
+    res.status(500).json({ message: "Failed to retrieve milestones" });
+  }
+});
+
+
+
+
+
 
 
 //------------------Admin Dashboard------------------
@@ -343,12 +576,63 @@ app.put("/update-campaign-status/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
-    await campaignModel.findByIdAndUpdate(id, { status });
+
+    // Fetch the campaign from the database
+    const campaign = await campaignModel.findById(id);
+
+    if (!campaign) {
+      return res.status(404).json({ error: "Campaign not found" });
+    }
+
+    console.log("✅ Campaign found:", campaign); // Log the campaign object
+
+    // Update status
+    campaign.status = status;
+    await campaign.save();
+
     res.json({ message: "Status updated successfully" });
+
+    // ✅ Debugging: Log email and status before sending email
+    console.log("✅ Email field:", campaign.email);
+    console.log("✅ Status received:", status);
+
+    // ✅ Check if email exists and status is "Approved"
+    if (campaign.email && (status === "Approved" || status === "Active")) {  // Allow both
+      console.log("✅ Sending email to:", campaign.email);
+    
+      const transporter = nodemailer.createTransport({
+        service: "Gmail",
+        auth: {
+          user: "jophinemca007@gmail.com",
+          pass: "eiehwgcpfitrjlas",
+        },
+      });
+    
+      const mailOptions = {
+        from: "jophinemca007@gmail.com",
+        to: campaign.email,
+        subject: "Campaign Status Updated",
+        html: `<h2>Your campaign status has been updated to: ${status}</h2>`,
+      };
+    
+      transporter.sendMail(mailOptions, (error, info) => {
+        if (error) {
+          console.error("❌ Error sending mail:", error);
+        } else {
+          console.log("✅ Mail sent successfully:", info.response);
+        }
+      });
+    } else {
+      console.log("❌ No email found or status is not 'Approved' or 'Active'.");
+    }
+    
   } catch (error) {
+    console.error("❌ Error updating status:", error);
     res.status(500).json({ error: "Failed to update status" });
   }
 });
+
+
 
 
 app.delete("/delete-campaign/:id", async (req, res) => {
@@ -452,6 +736,151 @@ app.get("/search-queries", async (req, res) => {
   } catch (error) {
     console.error("Search Queries Error:", error);
     res.status(500).json({ error: "Failed to search queries" });
+  }
+});
+
+
+
+app.get("/admin/campaign/:campaignId", (req, res) => {
+  const campaignId = req.params.campaignId;
+  
+  if (!campaignModel[campaignId]) {
+    return res.status(404).json({ error: "Campaign not found" });
+  }
+
+  // Only return milestone-related details for the admin
+  const campaignData = {
+    title: campaignModel[campaignId].title,
+    targetAmount: campaignModel[campaignId].targetAmount,
+    milestonesStatus: campaignModel[campaignId].milestonesStatus || {},
+  };
+
+  res.json(campaignData);
+});
+
+app.get("/milestones/:campaignId", async (req, res) => {
+  try {
+    const { campaignId } = req.params;
+    
+    if (!campaignId) {
+      return res.status(400).json({ message: "Campaign ID is required." });
+    }
+
+    const milestones = await Milestone.find({ campaignId });
+
+    if (!milestones.length) {
+      return res.status(404).json({ message: "No milestones found for this campaign." });
+    }
+
+    res.json(milestones);
+  } catch (error) {
+    console.error("Error fetching milestones:", error);
+    res.status(500).json({ message: "Internal server error." });
+  }
+});
+
+
+app.put("/milestones/update-status/:milestoneId", async (req, res) => {
+  const { milestoneId } = req.params;
+  const { status } = req.body;
+
+  const allowedStatuses = ["Pending", "Verifying", "Approved"];
+
+  console.log("🔹 Received status in request:", status); // Debugging
+
+  if (!status || !allowedStatuses.includes(status)) {
+    return res.status(400).json({ message: "Invalid status value" });
+  }
+
+  try {
+    const updatedMilestone = await Milestone.findByIdAndUpdate(
+      milestoneId,
+      {
+        $set: {
+          status: status,
+          approvedAt: status === "Approved" ? new Date() : null,
+        },
+      },
+      { new: true, runValidators: true }
+    ).populate("campaignId");
+
+    console.log("🔹 Updated Milestone:", updatedMilestone); // Debugging
+
+    if (!updatedMilestone) {
+      return res.status(404).json({ message: "Milestone not found" });
+    }
+
+    const campaignEmail = updatedMilestone.campaignId?.email;
+    console.log("🔹 Campaign Email Found:", campaignEmail); // Debugging
+
+    if (!campaignEmail) {
+      return res.status(404).json({ message: "Campaign email not found" });
+    }
+
+    res.json({
+      message: "Milestone status updated successfully",
+      milestone: updatedMilestone,
+    });
+
+    // ✅ Send email on any status change
+    console.log("✅ Sending email to:", campaignEmail);
+
+    const transporter = nodemailer.createTransport({
+      service: "Gmail",
+      auth: {
+        user: "jophinemca007@gmail.com",
+        pass: "eiehwgcpfitrjlas",
+      },
+    });
+
+    const mailOptions = {
+      from: "jophinemca007@gmail.com",
+      to: campaignEmail,
+      subject: `Milestone Status Updated to ${status}`,
+      html: `<h2>Your milestone "${updatedMilestone.title}" status has been updated!</h2>
+             <p>The new status is: <strong>${status}</strong>.</p>`,
+    };
+
+    transporter.sendMail(mailOptions, (error, info) => {
+      if (error) {
+        console.error("❌ Error sending mail:", error);
+      } else {
+        console.log("✅ Mail sent successfully:", info.response);
+      }
+    });
+
+  } catch (error) {
+    console.error("❌ Error updating milestone status:", error);
+    res.status(500).json({ message: "Error updating milestone status", error });
+  }
+});
+
+
+app.post("/milestones/create", async (req, res) => {
+  try {
+    const { campaignId } = req.body;
+
+    if (!campaignId) {
+      return res.status(400).json({ error: "Campaign ID is required" });
+    }
+
+    // Find existing milestones for the campaign to determine milestone number
+    const count = await Milestone.countDocuments({ campaignId });
+
+    const newMilestone = new Milestone({
+      campaignId,
+      milestoneNo: count + 1, // Increment milestone number
+      title: `Milestone ${count + 1}`,
+      status: "Pending",
+      submittedAt: new Date(),
+    });
+
+    await newMilestone.save();
+    res.status(201).json({ message: "Milestone created successfully", milestone: newMilestone });
+
+  } catch (error) {
+    console.error("Error creating milestone:", error);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
 

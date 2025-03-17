@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import Cookies from "js-cookie";
+import { useNavigate } from "react-router-dom"; // For navigation
 import UserNavBar from "./UserNavBar";
 
 const YourCampaigns = () => {
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const navigate = useNavigate(); // Initialize navigation
 
   useEffect(() => {
     const fetchCampaigns = async () => {
@@ -36,6 +38,15 @@ const YourCampaigns = () => {
       default:
         return { color: "#6c757d", fontWeight: "bold" }; // Gray
     }
+  };
+
+  const handleProgressClick = (campaignId, targetAmount) => {
+    // Store campaign ID and target amount in local storage
+    localStorage.setItem("campaignId", campaignId);
+    localStorage.setItem("targetAmount", targetAmount);
+
+    // Redirect to progress page
+    navigate(`/MilestoneForm/${campaignId}`);
   };
 
   return (
@@ -75,8 +86,8 @@ const YourCampaigns = () => {
                   borderLeft: `5px solid ${getStatusStyle(campaign.status).color}`,
                 }}
                 onMouseOver={(e) => (e.currentTarget.style.transform = "translateY(-5px)")}
-                onMouseOut={(e) => (e.currentTarget.style.transform = "translateY(0)")}
-              >
+                onMouseOut={(e) => (e.currentTarget.style.transform = "translateY(0)")}>
+                
                 <h3
                   style={{
                     color: "#333",
@@ -111,6 +122,30 @@ const YourCampaigns = () => {
                 <p style={{ fontSize: "14px", color: "#333", marginBottom: "6px" }}>
                   <strong>Status:</strong> <span style={getStatusStyle(campaign.status)}>{campaign.status}</span>
                 </p>
+
+                {/* Show "Your Progress" button only if campaign is ACTIVE */}
+                {campaign.status.toLowerCase() === "active" && (
+                  <button
+                    onClick={() => handleProgressClick(campaign._id, campaign.targetAmount)}
+                    style={{
+                      marginTop: "10px",
+                      padding: "8px 14px",
+                      backgroundColor: "#007bff",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                      fontSize: "14px",
+                      fontWeight: "bold",
+                      transition: "background 0.3s",
+                    }}
+                    onMouseOver={(e) => (e.target.style.backgroundColor = "#0056b3")}
+                    onMouseOut={(e) => (e.target.style.backgroundColor = "#007bff")}
+                  >
+                    Your Progress
+                  </button>
+                )}
+
                 {/* Decorative Gradient Background */}
                 <div
                   style={{

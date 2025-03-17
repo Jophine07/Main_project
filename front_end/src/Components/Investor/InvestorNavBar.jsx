@@ -54,11 +54,6 @@ const InvestorNavBar = () => {
                 </Link>
               </li>
               <li className="nav-item">
-                <Link className="nav-link" to="/s_predi">
-                  Success Prediction
-                </Link>
-              </li>
-              <li className="nav-item">
                 <Link className="nav-link" to="/FraudPredictionI">
                   Fraud Prediction
                 </Link>

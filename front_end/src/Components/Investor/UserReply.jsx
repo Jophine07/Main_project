@@ -52,7 +52,7 @@ const UserReply = () => {
             <div key={query._id} style={styles.card}>
               <p><strong>User:</strong> {query.userEmail}</p>
               <p><strong>Query:</strong> {query.message}</p>
-              <p><strong> Reply Message:</strong> {query.replies?.find(rep => rep.userEmail === userEmail)?.reply || "No reply yet"}</p>
+              <p><strong> Reply Message:</strong> {query.reply || "No reply yet"}</p>
             </div>
           ))
         ) : (
