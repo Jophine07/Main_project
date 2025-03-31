@@ -63,6 +63,11 @@ const InvestorNavBar = () => {
                   User_Replies
                 </Link>
               </li>
+              <li className="nav-item">
+                <Link className="nav-link" to="/PaymentHistory">
+                  Payment History
+                </Link>
+              </li>
             </ul>
             {/* Logout Button */}
             <button className="btn btn-danger ms-auto" onClick={handleLogout}>

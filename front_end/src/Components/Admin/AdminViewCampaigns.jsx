@@ -81,8 +81,9 @@ const AdminViewCampaigns = () => {
   };
   
   return (
+    <div>      <AdminDashboard />
+
     <div style={{ fontFamily: "Arial, sans-serif", backgroundColor: "#f3f4f6", minHeight: "100vh", padding: "20px" }}>
-      <AdminDashboard />
       <div style={{ maxWidth: "1200px", margin: "0 auto", background: "#fff", padding: "20px", borderRadius: "8px", boxShadow: "0 4px 10px rgba(0, 0, 0, 0.1)" }}>
         <h2 style={{ textAlign: "center", fontSize: "26px", color: "#333", marginBottom: "20px" }}>All Campaigns</h2>
 
@@ -128,22 +129,24 @@ const AdminViewCampaigns = () => {
                   <td>{campaign.title || "Untitled"}</td>
                   <td>{campaign.email || "Not provided"}</td>
                   <td>₹{campaign.targetAmount || "N/A"}</td>
-                  <td>₹{campaign.fundsRaised || 0}</td>
+                  <td>₹{campaign.collectedAmount || 0}</td>
                   <td>{campaign.deadline || "N/A"}</td>
                   <td>{campaign.fundingType || "N/A"}</td>
-
                   <td>
-                    <select
-                      value={campaign.status || "Pending"}
-                      onChange={(e) => handleStatusChange(campaign._id, e.target.value)}
-                      style={{ padding: "5px", borderRadius: "4px", border: "1px solid #ccc" }}
-                    >
-                      <option value="Pending">Pending</option>
-                      <option value="Active">Active</option>
-                      <option value="Completed">Completed</option>
-                    </select>
+                    {campaign.collectedAmount >= campaign.targetAmount ? (
+                      <span style={{ color: "green", fontWeight: "bold" }}>Target Achieved</span>
+                    ) : (
+                      <select
+                        value={campaign.status || "Pending"}
+                        onChange={(e) => handleStatusChange(campaign._id, e.target.value)}
+                        style={{ padding: "5px", borderRadius: "4px", border: "1px solid #ccc" }}
+                      >
+                        <option value="Pending">Pending</option>
+                        <option value="Active">Active</option>
+                        <option value="Completed">Completed</option>
+                      </select>
+                    )}
                   </td>
-
                   <td>
                     <button
                       onClick={() => handleDelete(campaign._id)}
@@ -154,7 +157,7 @@ const AdminViewCampaigns = () => {
 
                     {campaign.status === "Active" && (
                       <button
-                        onClick={() => handleStartTracking(campaign._id)}
+                        onClick={() => handleStartTracking(campaign._id, campaign.title)}
                         style={{ background: "#28a745", color: "#fff", padding: "5px 10px", borderRadius: "5px", border: "none", cursor: "pointer" }}
                       >
                         Start Tracking
@@ -166,6 +169,7 @@ const AdminViewCampaigns = () => {
             </tbody>
           </table>
         )}
+      </div>
       </div>
     </div>
   );

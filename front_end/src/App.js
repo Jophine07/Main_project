@@ -24,6 +24,8 @@ import UserReply from './Components/Investor/UserReply';
 import MilestoneForm from './Components/MilestoneForm';
 import AdminMilestoneTracking from './Components/Admin/AdminMileStoneTracking';
 import Tracker from './Components/Investor/Tracker';
+import PaymentHistory from './Components/Investor/PaymentHistory';
+import AdminPaymentHistory from './Components/Admin/AdminPaymentHistory';
 
 
 function App() {
@@ -45,6 +47,7 @@ function App() {
         <Route path='/AdminViewUsersAndInvestors' element={<AdminViewUsersAndInvestors/>}/>
         <Route path='/AdminViewQueries' element={<AdminViewQueries/>}/>
         <Route path="/AdminMilestoneTracking/:campaignId" element={<AdminMilestoneTracking />} />
+        <Route path="/AdminPaymentHistory" element={<AdminPaymentHistory />} />
 
 
 
@@ -71,6 +74,7 @@ function App() {
         <Route path='/donate'element={<Donate/>}/> 
         <Route path='/UserReply'element={<UserReply/>}/> 
         <Route path="/Tracker/:campaignId" element={<Tracker />} />
+        <Route path="/PaymentHistory" element={<PaymentHistory />} />
       </Routes>
       </BrowserRouter>
     </div>

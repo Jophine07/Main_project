@@ -13,6 +13,13 @@ const Milestone = require("./Models/MileStone")
 const path = require("path"); 
 const fs = require("fs");
 const nodemailer = require("nodemailer");
+const Razorpay = require("razorpay");
+const crypto = require("crypto");
+
+
+
+
+
 
 
 
@@ -31,7 +38,6 @@ const generateHashPassword = async (password) => {
     return bcrypt.hash(password, salt)
 }
 
-
 const uploadDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
@@ -47,6 +53,21 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ storage: storage });
+
+
+
+const dotenv = require("dotenv");
+const Order = require("./Models/Order")
+
+require("dotenv").config({ path: "./.env" });
+
+
+
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_SECRET_KEY
+});
+
 
 
 mongoose.connect("mongodb+srv://jophine:jophinepaul@cluster0.oyyvgui.mongodb.net/MainDB?retryWrites=true&w=majority&appName=Cluster0")
@@ -552,6 +573,216 @@ app.get("/Tracker/:campaignId", async (req, res) => {
 
 
 
+app.post("/payment/create-order", async (req, res) => {
+  try {
+    const { amount, campaignId, milestoneId } = req.body;
+    if (!amount || !campaignId || !milestoneId) {
+      return res.status(400).json({ success: false, message: "Missing required fields" });
+    }
+
+    const options = {
+      amount: amount * 100, // Amount in paise
+      currency: "INR",
+      payment_capture: 1, // Auto-capture the payment
+    };
+
+    const order = await razorpay.orders.create(options);
+    res.json({
+      success: true,
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+    });
+  } catch (error) {
+    console.error("Error creating Razorpay order:", error);
+    res.status(500).json({ success: false, message: "Error creating order" });
+  }
+});
+
+
+
+app.post("/payment/verify", async (req, res) => {
+  try {
+    const { order_id, payment_id, signature, campaignId, milestoneId, amount, investorEmail } = req.body;
+    
+    // Log received values for debugging
+    console.log("Received for verification:", { order_id, payment_id, signature, campaignId, milestoneId, amount,investorEmail });
+
+    if (!order_id || !payment_id || !signature || !campaignId || !milestoneId || !amount) {
+      console.log("Missing required fields");
+      return res.status(400).json({ success: false, message: "Missing required fields for verification" });
+    }
+
+    // Generate expected signature using order_id and payment_id
+    const generatedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_SECRET_KEY)
+      .update(order_id + "|" + payment_id)
+      .digest("hex");
+
+    console.log("Generated Signature:", generatedSignature);
+
+    if (generatedSignature !== signature) {
+      console.log("Signature mismatch", { generatedSignature, providedSignature: signature });
+      return res.status(400).json({ success: false, message: "Invalid signature" });
+    }
+
+    // Create and save a new order record
+    const newOrder = new Order({
+      campaignId,
+      milestoneId,
+      orderId: order_id,
+      amount,
+      investorEmail,
+      status: "Paid",
+    });
+
+    await newOrder.save();
+    console.log("Order saved:", newOrder);
+
+    res.json({ success: true, message: "Payment verified and order stored", order: newOrder });
+  } catch (error) {
+    console.error("Error verifying payment:", error);
+    res.status(500).json({ success: false, message: "Payment verification failed" });
+  }
+});
+
+
+
+
+
+app.post("/payment/mark-paid", async (req, res) => {
+  try {
+    const { campaignId, milestoneId, orderId, payment_id, amount, currency } = req.body;
+    if (!campaignId || !milestoneId || !orderId || !payment_id || !amount || !currency) {
+      return res.status(400).json({ success: false, message: "Missing required fields" });
+    }
+
+    // Update the milestone's payment status to "Paid"
+    const milestone = await Milestone.findById(milestoneId);
+    if (!milestone) {
+      return res.status(404).json({ success: false, message: "Milestone not found" });
+    }
+    milestone.paymentStatus = "Paid";
+    await milestone.save();
+
+    res.json({
+      success: true,
+      message: "Payment marked as paid and order stored successfully",
+      milestone,
+    });
+  } catch (error) {
+    console.error("Error marking payment as paid:", error);
+    res.status(500).json({ success: false, message: "Failed to mark payment as paid" });
+  }
+});
+
+
+
+app.post("/campaign/update-payment", async (req, res) => {
+  const { campaignId, milestoneId, paidAmount, investorEmail } = req.body;
+
+  if (!campaignId || !milestoneId || !paidAmount || !investorEmail) {
+    return res.status(400).json({
+      success: false,
+      message: "Missing required fields: campaignId, milestoneId, paidAmount, investorEmail",
+    });
+  }
+
+  try {
+    // Find the campaign by ID
+    const campaign = await campaignModel.findById(campaignId);
+    if (!campaign) {
+      return res.status(404).json({
+        success: false,
+        message: "Campaign not found",
+      });
+    }
+
+    // Update the campaign's collectedAmount correctly using the instance
+    campaign.collectedAmount = (campaign.collectedAmount || 0) + Number(paidAmount);
+
+    // Save the updated campaign document
+    await campaign.save();
+
+    res.json({
+      success: true,
+      message: "Campaign payment updated successfully",
+    });
+  } catch (error) {
+    console.error("Error updating campaign payment:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+
+
+
+
+app.get("/payment-history", async (req, res) => {
+  let { investorEmail } = req.query;
+  if (!investorEmail) {
+    return res.status(400).json({
+      success: false,
+      message: "Investor email is required",
+    });
+  }
+  
+  // Trim and use regex for case-insensitive match
+  investorEmail = investorEmail.trim();
+
+  try {
+    const history = await Order.aggregate([
+      { 
+        $match: { 
+          investorEmail: { $regex: new RegExp(`^${investorEmail}$`, "i") } 
+        } 
+      },
+      {
+        $lookup: {
+          from: "milestones",
+          localField: "milestoneId",
+          foreignField: "_id",
+          as: "milestoneDetails",
+        },
+      },
+      { $unwind: "$milestoneDetails" },
+      {
+        $lookup: {
+          from: "campaigns",
+          localField: "campaignId",
+          foreignField: "_id",
+          as: "campaignDetails",
+        },
+      },
+      { $unwind: "$campaignDetails" },
+      {
+        $project: {
+          orderId: 1,
+          investorEmail: 1,
+          amount: 1,
+          status: 1,
+          createdAt: 1,
+          "milestoneDetails.milestoneNo": 1,
+          "milestoneDetails.title": 1,
+          "campaignDetails.category": 1,
+          "campaignDetails.title": 1,
+        },
+      },
+    ]);
+
+    res.json({ success: true, history });
+  } catch (error) {
+    console.error("Error retrieving payment history:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error while retrieving payment history",
+    });
+  }
+});
+
 
 
 
@@ -886,8 +1117,57 @@ app.post("/milestones/create", async (req, res) => {
 
 
 
+app.get("/admin/payment-historyI", async (req, res) => {
+  try {
+    const history = await Order.aggregate([
+      {
+        $lookup: {
+          from: "milestones", // Ensure this matches the actual collection name in your DB
+          localField: "milestoneId",
+          foreignField: "_id",
+          as: "milestoneDetails",
+        },
+      },
+      { $unwind: "$milestoneDetails" },
+      {
+        $lookup: {
+          from: "campaigns", // Ensure this matches the actual collection name in your DB
+          localField: "campaignId",
+          foreignField: "_id",
+          as: "campaignDetails",
+        },
+      },
+      { $unwind: "$campaignDetails" },
+      {
+        $project: {
+          orderId: 1,
+          investorEmail: 1,
+          amount: 1,
+          status: 1,
+          createdAt: 1,
+          "milestoneDetails.milestoneNo": 1,
+          "milestoneDetails.title": 1,
+          "campaignDetails.category": 1,
+          "campaignDetails.title": 1,
+        },
+      },
+    ]);
+
+    res.json({ success: true, history });
+  } catch (error) {
+    console.error("Error retrieving payment history for admin:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error while retrieving payment history",
+    });
+  }
+});
+
+
+module.exports = router;
+
 
 
 app.listen(8080,()=>{
-  console.log("Server Turned On")
+  console.log("Server Turned On and Happy codingg")
 })

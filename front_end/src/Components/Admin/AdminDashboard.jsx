@@ -63,6 +63,11 @@ const AdminDashboard = () => {
                     Queries
                   </Link>
                 </li>
+                <li className="nav-item">
+                  <Link className="nav-link" to="/adminpaymenthistory">
+                  Payment History
+                  </Link>
+                </li>
               </ul>
             </div>
             {/* Logout Button */}
